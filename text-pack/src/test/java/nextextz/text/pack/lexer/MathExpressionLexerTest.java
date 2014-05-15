@@ -2,6 +2,7 @@ package nextextz.text.pack.lexer;
 
 import com.google.common.collect.Lists;
 import nextextz.text.pack.text.Factory;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -11,70 +12,105 @@ import java.util.Iterator;
 import static junit.framework.Assert.assertTrue;
 
 public class MathExpressionLexerTest {
+    private MathExpressionLexerHandlerCollector handler;
+    private Collection<MathExpressionLexer.Token> tokens;
+
+    @Before
+    public void setUp() {
+        tokens = Lists.newLinkedList();
+        handler = new MathExpressionLexerHandlerCollector(tokens);
+    }
 
     @Test(expected = NullPointerException.class)
     public void test_null() {
-        new MathExpressionLexer(null, null, null, null, null);
+        new MathExpressionLexer(null, null, null, null, null, null);
     }
 
     @Test
     public void test_empty() {
-        final MathExpressionLexer lexer = createLexer("");
-        assertTrue(lexer.getNext() == MathExpressionLexer.Token.getEmpty());
+        executeLexer(createLexer("", handler), handler);
+        final Collection<MathExpressionLexer.Token> test = Lists.newArrayList(
+                MathExpressionLexer.Token.getEmpty()
+        );
+        assertTokens(tokens, test);
     }
 
     @Test
     public void test_spaces() {
-        final MathExpressionLexer lexer = createLexer("    ");
-        assertTrue(lexer.getNext() == MathExpressionLexer.Token.getEmpty());
+        executeLexer(createLexer("    ", handler), handler);
+        final Collection<MathExpressionLexer.Token> test = Lists.newArrayList(
+                MathExpressionLexer.Token.getEmpty()
+        );
+        assertTokens(tokens, test);
     }
 
     @Test
     public void test_number() {
-        final MathExpressionLexer lexer = createLexer("5");
-        assertToken(lexer.getNext(), MathExpressionLexer.TokenType.NUMBER, "5");
+        executeLexer(createLexer("5", handler), handler);
+        final Collection<MathExpressionLexer.Token> test = Lists.newArrayList(
+                MathExpressionLexer.Token.createNumber("5"),
+                MathExpressionLexer.Token.getEmpty()
+        );
+        assertTokens(tokens, test);
     }
 
     @Test
     public void test_number_with_separator() {
-        final MathExpressionLexer lexer = createLexer("5.777");
-        assertToken(lexer.getNext(), MathExpressionLexer.TokenType.NUMBER, "5.777");
+        executeLexer(createLexer("5.777", handler), handler);
+        final Collection<MathExpressionLexer.Token> test = Lists.newArrayList(
+                MathExpressionLexer.Token.createNumber("5.777"),
+                MathExpressionLexer.Token.getEmpty()
+        );
+        assertTokens(tokens, test);
     }
 
     @Test
     public void test_number_with_spaces() {
-        final MathExpressionLexer lexer = createLexer("   5         ");
-        assertToken(lexer.getNext(), MathExpressionLexer.TokenType.NUMBER, "5");
+        executeLexer(createLexer("   5         ", handler), handler);
+        final Collection<MathExpressionLexer.Token> test = Lists.newArrayList(
+                MathExpressionLexer.Token.createNumber("5"),
+                MathExpressionLexer.Token.getEmpty()
+        );
+        assertTokens(tokens, test);
     }
 
     @Test
     public void test_operation() {
-        final MathExpressionLexer lexer = createLexer("+");
-        assertToken(lexer.getNext(), MathExpressionLexer.TokenType.OPERATION, "+");
+        executeLexer(createLexer("+", handler), handler);
+        final Collection<MathExpressionLexer.Token> test = Lists.newArrayList(
+                MathExpressionLexer.Token.createOperation("+"),
+                MathExpressionLexer.Token.getEmpty()
+        );
+        assertTokens(tokens, test);
     }
 
     @Test
     public void test_bracket() {
-        final MathExpressionLexer lexer = createLexer(")");
-        assertToken(lexer.getNext(), MathExpressionLexer.TokenType.BRACKET, ")");
+        executeLexer(createLexer(")", handler), handler);
+        final Collection<MathExpressionLexer.Token> test = Lists.newArrayList(
+                MathExpressionLexer.Token.createBracket(")"),
+                MathExpressionLexer.Token.getEmpty()
+        );
+        assertTokens(tokens, test);
     }
 
     @Test
     public void test_number_operation_in_bracket() {
-        final Collection<MathExpressionLexer.Token> tokens = executeLexer(createLexer("(+78.901)"));
+        executeLexer(createLexer("(+78.901)", handler), handler);
         final Collection<MathExpressionLexer.Token> test = Lists.newArrayList(
                 MathExpressionLexer.Token.createBracket("("),
                 MathExpressionLexer.Token.createOperation("+"),
                 MathExpressionLexer.Token.createNumber("78.901"),
-                MathExpressionLexer.Token.createBracket(")")
+                MathExpressionLexer.Token.createBracket(")"),
+                MathExpressionLexer.Token.getEmpty()
         );
         assertTokens(tokens, test);
     }
 
     @Test
     public void test_with_free_operations() {
-        final Collection<MathExpressionLexer.Token> tokens =
-                executeLexer(createLexer("sin( -7.1 ) * tan( 9.7 )", Arrays.asList("sin", "tan", "*", "-")));
+        executeLexer(
+                createLexer("sin( -7.1 ) * tan( 9.7 )", handler, Arrays.asList("sin", "tan", "*", "-")), handler);
         final Collection<MathExpressionLexer.Token> test = Lists.newArrayList(
                 MathExpressionLexer.Token.createOperation("sin"),
                 MathExpressionLexer.Token.createBracket("("),
@@ -85,27 +121,32 @@ public class MathExpressionLexerTest {
                 MathExpressionLexer.Token.createOperation("tan"),
                 MathExpressionLexer.Token.createBracket("("),
                 MathExpressionLexer.Token.createNumber("9.7"),
-                MathExpressionLexer.Token.createBracket(")")
+                MathExpressionLexer.Token.createBracket(")"),
+                MathExpressionLexer.Token.getEmpty()
         );
         assertTokens(tokens, test);
     }
 
-    private static Collection<MathExpressionLexer.Token> executeLexer(MathExpressionLexer lexer) {
-        final Collection<MathExpressionLexer.Token> result = Lists.newArrayList();
-        MathExpressionLexer.Token token;
-        while ((token = lexer.getNext()) != MathExpressionLexer.Token.getEmpty()) {
-            result.add(token);
+    private static void executeLexer(MathExpressionLexer lexer, MathExpressionLexerHandlerCollector handler) {
+        for (; ; ) {
+            lexer.execute();
+            if (!handler.next()) {
+                break;
+            }
         }
-        return result;
     }
 
-    private static MathExpressionLexer createLexer(String text) {
-        return createLexer(text, Constants.SIMPLE_MATH_OPERATIONS);
+    private static MathExpressionLexer createLexer(String text, MathExpressionLexerHandler handler) {
+        return createLexer(text, handler, Constants.SIMPLE_MATH_OPERATIONS);
     }
 
-    private static MathExpressionLexer createLexer(String text, Collection<String> operations) {
+    private static MathExpressionLexer createLexer(
+            String text,
+            MathExpressionLexerHandler handler,
+            Collection<String> operations) {
         return new MathExpressionLexer(
                 Factory.createText(text),
+                handler,
                 Constants.NUMBERS, operations, Constants.BRACKETS, Constants.NUMBER_SEPARATOR);
     }
 
@@ -120,6 +161,32 @@ public class MathExpressionLexerTest {
         for (MathExpressionLexer.Token t : tokens) {
             final MathExpressionLexer.Token next = testTokensIterator.next();
             assertToken(t, next.getType(), next.getValue());
+        }
+    }
+
+    private static class MathExpressionLexerHandlerCollector implements MathExpressionLexerHandler {
+        private final Collection<MathExpressionLexer.Token> tokens;
+
+        private MathExpressionLexer.Token tail;
+
+        public MathExpressionLexerHandlerCollector(Collection<MathExpressionLexer.Token> tokens) {
+            this.tokens = tokens;
+        }
+
+        @Override
+        public void handle(MathExpressionLexer.Token token) {
+            tokens.add(token);
+            tail = token;
+        }
+
+        public boolean next() {
+            boolean result = true;
+            if (tail != null) {
+                if (tail.getType() == MathExpressionLexer.TokenType.EMPTY) {
+                    result = false;
+                }
+            }
+            return result;
         }
     }
 }

@@ -11,6 +11,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * Extracts tokens from math expressions. '(9+1)' -> {'(', '9', '+', '1', ')'}.
  */
 public class MathExpressionLexer {
+    private final Text text;
+    private final MathExpressionLexerHandler handler;
     private final Collection<Character> numbers;
     private final Collection<String> operations;
     private final Collection<Character> brackets;
@@ -18,14 +20,13 @@ public class MathExpressionLexer {
 
     private final Map<Integer, Collection<Character>> distributedOperations;
 
-    private final Text text;
-
     private long position;
 
     /**
      * Constructs new object.
      *
      * @param text            text (can not be null).
+     * @param handler         handler (can not be null).
      * @param numbers         numbers (can not be null).
      * @param operations      operations (can not be null)
      * @param brackets        brackets (can not be null)
@@ -33,18 +34,20 @@ public class MathExpressionLexer {
      */
     public MathExpressionLexer(
             Text text,
+            MathExpressionLexerHandler handler,
             Collection<Character> numbers,
             Collection<String> operations,
             Collection<Character> brackets,
             Character numberSeparator) {
-
         checkNotNull(text);
+        checkNotNull(handler);
         checkNotNull(numbers);
         checkNotNull(operations);
         checkNotNull(brackets);
         checkNotNull(numberSeparator);
 
         this.text = text;
+        this.handler = handler;
         this.numbers = numbers;
         this.operations = operations;
         this.brackets = brackets;
@@ -54,11 +57,9 @@ public class MathExpressionLexer {
     }
 
     /**
-     * Returns next token.
-     *
-     * @return token.
+     * Executes calculations.
      */
-    public Token getNext() {
+    public void execute() {
         Token result = Token.getEmpty();
         for (; ; ) {
             final Character symbol = getSymbol();
@@ -77,7 +78,7 @@ public class MathExpressionLexer {
             }
             makeStep();
         }
-        return result;
+        handler.handle(result);
     }
 
     private Token getNumber() {
@@ -186,7 +187,16 @@ public class MathExpressionLexer {
         private final TokenType type;
         private final String value;
 
+        /**
+         * Creates new object.
+         *
+         * @param type  type (can not be null).
+         * @param value value (can not be null).
+         */
         Token(TokenType type, String value) {
+            checkNotNull(type);
+            checkNotNull(value);
+
             this.type = type;
             this.value = value;
         }
