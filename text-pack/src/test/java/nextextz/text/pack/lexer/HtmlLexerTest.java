@@ -236,6 +236,48 @@ public class HtmlLexerTest {
         assertTokens(tokens, test);
     }
 
+    @Test
+    public void test_comments() {
+        executeLexer(createLexer("<!-- text <p> sample </p> -->", handler), handler);
+        final Collection<HtmlLexer.Token> test = Lists.newArrayList(
+                HtmlLexer.Token.createTag("<!--"),
+                HtmlLexer.Token.createComments(" text <p> sample </p> "),
+                HtmlLexer.Token.createTag(">"),
+                HtmlLexer.Token.getEmpty()
+        );
+        assertTokens(tokens, test);
+    }
+
+    @Test
+    public void test_comments_with_spaces() {
+        executeLexer(createLexer("<!-- text --   >", handler), handler);
+        final Collection<HtmlLexer.Token> test = Lists.newArrayList(
+                HtmlLexer.Token.createTag("<!--"),
+                HtmlLexer.Token.createComments(" text "),
+                HtmlLexer.Token.createTag(">"),
+                HtmlLexer.Token.getEmpty()
+        );
+        assertTokens(tokens, test);
+    }
+
+    @Test
+    public void test_several_comments() {
+        executeLexer(createLexer("<!-- text --><p>title</p><!-- text2 -->", handler), handler);
+        final Collection<HtmlLexer.Token> test = Lists.newArrayList(
+                HtmlLexer.Token.createTag("<!--"),
+                HtmlLexer.Token.createComments(" text "),
+                HtmlLexer.Token.createTag(">"),
+                HtmlLexer.Token.createTag("<p>"),
+                HtmlLexer.Token.createContent("title"),
+                HtmlLexer.Token.createTag("</p>"),
+                HtmlLexer.Token.createTag("<!--"),
+                HtmlLexer.Token.createComments(" text2 "),
+                HtmlLexer.Token.createTag(">"),
+                HtmlLexer.Token.getEmpty()
+        );
+        assertTokens(tokens, test);
+    }
+
     private static void executeLexer(HtmlLexer lexer, HtmlLexerHandlerCollector handler) {
         for (; ; ) {
             lexer.execute();

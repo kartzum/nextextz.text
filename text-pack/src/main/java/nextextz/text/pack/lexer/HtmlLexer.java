@@ -11,10 +11,17 @@ public class HtmlLexer {
     private static final Character START_SYMBOL = '<';
     private static final Character FINISH_SYMBOL = '>';
 
+    private static final Character SPACE = ' ';
+    private static final Character MINUS = '-';
+
+    private static final String COMMENTS_TAG = "!--";
+
     private final Text text;
     private final HtmlLexerHandler handler;
 
     private long position;
+
+    private boolean isCommentsProcessing;
 
     /**
      * Creates new lexer.
@@ -39,7 +46,10 @@ public class HtmlLexer {
         Token result = Token.getEmpty();
         final Character symbol = getSymbol();
         if (symbol != null) {
-            if (isTag(symbol)) {
+            if (isCommentsProcessing()) {
+                result = getComments();
+                finishCommentsProcessing();
+            } else if (isTag(symbol)) {
                 result = getTag();
             } else {
                 result = getContent();
@@ -50,6 +60,7 @@ public class HtmlLexer {
 
     private Token getTag() {
         final StringBuilder buffer = new StringBuilder();
+        final StringBuilder tagNameBuffer = new StringBuilder();
 
         long firstStartSymbol = -1;
         for (; ; ) {
@@ -59,6 +70,13 @@ public class HtmlLexer {
             }
             if (START_SYMBOL == symbol && firstStartSymbol == -1) {
                 firstStartSymbol = getPosition();
+            }
+            if (extractTagName(symbol, tagNameBuffer)) {
+                final String tagName = tagNameBuffer.toString();
+                if (COMMENTS_TAG.equals(tagName)) {
+                    startCommentsProcessing();
+                    break;
+                }
             }
             buffer.append(symbol);
             if (FINISH_SYMBOL == symbol || (firstStartSymbol != getPosition() && START_SYMBOL == symbol)) {
@@ -86,8 +104,46 @@ public class HtmlLexer {
         return Token.createContent(buffer.toString());
     }
 
+    private Token getComments() {
+        final StringBuilder buffer = new StringBuilder();
+        for (; ; ) {
+            final Character symbol = getSymbol();
+            if (symbol == null) {
+                break;
+            }
+
+            if (buffer.length() >= 2) {
+                final char symbolBeforeLast = buffer.charAt(buffer.length() - 2);
+                final char symbolLast = buffer.charAt(buffer.length() - 1);
+                if (MINUS == symbolBeforeLast && MINUS == symbolLast) {
+                    buffer.deleteCharAt(buffer.length() - 1);
+                    buffer.deleteCharAt(buffer.length() - 1);
+                    skipSpaces();
+                    break;
+                }
+            }
+
+            buffer.append(symbol);
+            makeStep();
+        }
+        return Token.createComments(buffer.toString());
+    }
+
     private boolean isTag(Character symbol) {
         return START_SYMBOL == symbol || FINISH_SYMBOL == symbol;
+    }
+
+    private boolean extractTagName(Character symbol, StringBuilder buffer) {
+        boolean result = false;
+        if (SPACE != symbol) {
+            buffer.append(symbol);
+        } else {
+            if (buffer.length() > 0) {
+                buffer.deleteCharAt(0);
+                result = true;
+            }
+        }
+        return result;
     }
 
     private Character getSymbol() {
@@ -100,6 +156,31 @@ public class HtmlLexer {
 
     private long getPosition() {
         return position;
+    }
+
+    private boolean isCommentsProcessing() {
+        return isCommentsProcessing;
+    }
+
+    private void finishCommentsProcessing() {
+        isCommentsProcessing = false;
+    }
+
+    private void startCommentsProcessing() {
+        isCommentsProcessing = true;
+    }
+
+    private void skipSpaces() {
+        for (; ; ) {
+            final Character symbol = getSymbol();
+            if (symbol == null) {
+                break;
+            }
+            if (SPACE != symbol) {
+                break;
+            }
+            makeStep();
+        }
     }
 
     /**
@@ -119,7 +200,12 @@ public class HtmlLexer {
         /**
          * Content.
          */
-        CONTENT
+        CONTENT,
+
+        /**
+         * Comments.
+         */
+        COMMENTS
     }
 
     /**
@@ -208,10 +294,20 @@ public class HtmlLexer {
          * Returns new content.
          *
          * @param value value.
-         * @return contetn.
+         * @return content.
          */
         public static Token createContent(String value) {
             return new Token(TokenType.CONTENT, value);
+        }
+
+        /**
+         * Returns new comments.
+         *
+         * @param value value.
+         * @return comments.
+         */
+        public static Token createComments(String value) {
+            return new Token(TokenType.COMMENTS, value);
         }
     }
 }
