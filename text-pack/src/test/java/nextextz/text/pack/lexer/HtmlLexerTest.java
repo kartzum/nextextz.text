@@ -278,6 +278,30 @@ public class HtmlLexerTest {
         assertTokens(tokens, test);
     }
 
+    @Test
+    public void test_script() {
+        executeLexer(createLexer("<script> alert('!'); </script>", handler), handler);
+        final Collection<HtmlLexer.Token> test = Lists.newArrayList(
+                HtmlLexer.Token.createTag("<script>"),
+                HtmlLexer.Token.createScript(" alert('!'); "),
+                HtmlLexer.Token.createTag("</script>"),
+                HtmlLexer.Token.getEmpty()
+        );
+        assertTokens(tokens, test);
+    }
+
+    @Test
+    public void test_script_comments() {
+        executeLexer(createLexer("<script> alert('!'); <!-- 2 --> /* 3 */ </script>", handler), handler);
+        final Collection<HtmlLexer.Token> test = Lists.newArrayList(
+                HtmlLexer.Token.createTag("<script>"),
+                HtmlLexer.Token.createScript(" alert('!'); <!-- 2 --> /* 3 */ "),
+                HtmlLexer.Token.createTag("</script>"),
+                HtmlLexer.Token.getEmpty()
+        );
+        assertTokens(tokens, test);
+    }
+
     private static void executeLexer(HtmlLexer lexer, HtmlLexerHandlerCollector handler) {
         for (; ; ) {
             lexer.execute();

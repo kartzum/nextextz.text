@@ -16,4 +16,14 @@ public final class Factory {
     public static Text createText(String value) {
         return new TextLight(value);
     }
+
+    /**
+     * Creates new symbol provider.
+     *
+     * @param value value.
+     * @return provider.
+     */
+    public static SymbolProvider createSymbolProvider(String value) {
+        return new SymbolProviderLight(value);
+    }
 }

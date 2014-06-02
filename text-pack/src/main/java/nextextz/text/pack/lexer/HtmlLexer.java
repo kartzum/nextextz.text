@@ -1,6 +1,10 @@
 package nextextz.text.pack.lexer;
 
+import nextextz.text.pack.text.SymbolProvider;
 import nextextz.text.pack.text.Text;
+
+import java.util.Arrays;
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -13,8 +17,10 @@ public class HtmlLexer {
 
     private static final Character SPACE = ' ';
     private static final Character MINUS = '-';
+    private static final Character SLASH = '/';
 
     private static final String COMMENTS_TAG = "!--";
+    private static final String SCRIPT_TAG = "script";
 
     private final Text text;
     private final HtmlLexerHandler handler;
@@ -22,6 +28,7 @@ public class HtmlLexer {
     private long position;
 
     private boolean isCommentsProcessing;
+    private boolean isScriptProcessing;
 
     /**
      * Creates new lexer.
@@ -46,7 +53,10 @@ public class HtmlLexer {
         Token result = Token.getEmpty();
         final Character symbol = getSymbol();
         if (symbol != null) {
-            if (isCommentsProcessing()) {
+            if (isScriptProcessing()) {
+                result = getScript();
+                finishScriptProcessing();
+            } else if (isCommentsProcessing()) {
                 result = getComments();
                 finishCommentsProcessing();
             } else if (isTag(symbol)) {
@@ -75,6 +85,13 @@ public class HtmlLexer {
                 final String tagName = tagNameBuffer.toString();
                 if (COMMENTS_TAG.equals(tagName)) {
                     startCommentsProcessing();
+                    break;
+                } else if (SCRIPT_TAG.equalsIgnoreCase(tagName)) {
+                    startScriptProcessing();
+                    if (FINISH_SYMBOL == symbol) {
+                        buffer.append(symbol);
+                        makeStep();
+                    }
                     break;
                 }
             }
@@ -129,6 +146,26 @@ public class HtmlLexer {
         return Token.createComments(buffer.toString());
     }
 
+    private Token getScript() {
+        final long startPosition = getPosition();
+        final StringBuilder buffer = new StringBuilder();
+        final SymbolProviderText symbolProvider = new SymbolProviderText(buffer);
+        final HtmlCommentsExplorer explorer = new HtmlCommentsExplorer(symbolProvider, symbolProvider);
+        for (; ; ) {
+            final boolean next = explorer.execute();
+            if (!next) {
+                break;
+            }
+        }
+        final long finishPosition = symbolProvider.getFinishPosition();
+        final int size = (int) (finishPosition - startPosition);
+        for (int i = 0; i < buffer.length() - size; i++) {
+            buffer.deleteCharAt(buffer.length() - 1);
+        }
+        shiftPosition(finishPosition);
+        return Token.createScript(buffer.toString());
+    }
+
     private boolean isTag(Character symbol) {
         return START_SYMBOL == symbol || FINISH_SYMBOL == symbol;
     }
@@ -136,7 +173,14 @@ public class HtmlLexer {
     private boolean extractTagName(Character symbol, StringBuilder buffer) {
         boolean result = false;
         if (SPACE != symbol) {
-            buffer.append(symbol);
+            if (FINISH_SYMBOL == symbol) {
+                if (buffer.length() > 0) {
+                    buffer.deleteCharAt(0);
+                    result = true;
+                }
+            } else {
+                buffer.append(symbol);
+            }
         } else {
             if (buffer.length() > 0) {
                 buffer.deleteCharAt(0);
@@ -147,7 +191,11 @@ public class HtmlLexer {
     }
 
     private Character getSymbol() {
-        return text.getSymbol(position);
+        return getSymbol(position);
+    }
+
+    private Character getSymbol(long index) {
+        return text.getSymbol(index);
     }
 
     private void makeStep() {
@@ -170,6 +218,18 @@ public class HtmlLexer {
         isCommentsProcessing = true;
     }
 
+    private boolean isScriptProcessing() {
+        return isScriptProcessing;
+    }
+
+    private void finishScriptProcessing() {
+        isScriptProcessing = false;
+    }
+
+    private void startScriptProcessing() {
+        isScriptProcessing = true;
+    }
+
     private void skipSpaces() {
         for (; ; ) {
             final Character symbol = getSymbol();
@@ -180,6 +240,81 @@ public class HtmlLexer {
                 break;
             }
             makeStep();
+        }
+    }
+
+    private void shiftPosition(long position) {
+        this.position = position;
+    }
+
+    private class SymbolProviderText implements SymbolProvider, HtmlCommentsExplorerHandler {
+        private final StringBuilder content;
+
+        private final List<Character> FINISH_ARRAY = Arrays.asList(START_SYMBOL, SLASH);
+
+        private final FixSizeBuffer<Character> buffer = new FixSizeBuffer<>(2);
+
+        private int counter;
+
+        private long finishPosition = -1;
+
+        public SymbolProviderText(StringBuilder content) {
+            this.content = content;
+        }
+
+        @Override
+        public Character getSymbol() {
+            Character result = HtmlLexer.this.getSymbol();
+
+            if (counter == 0) {
+                if (SPACE != result) {
+                    buffer.add(result);
+
+                    if (START_SYMBOL == result) {
+                        finishPosition = getPosition();
+                    }
+                }
+            }
+
+            if (buffer.match(FINISH_ARRAY)) {
+                result = null;
+            }
+
+            if (result != null) {
+                content.append(result);
+            }
+
+            return result;
+        }
+
+        @Override
+        public void move() {
+            HtmlLexer.this.makeStep();
+        }
+
+        @Override
+        public long getPosition() {
+            return HtmlLexer.this.getPosition();
+        }
+
+        @Override
+        public void start(long position) {
+            counter++;
+            reset();
+        }
+
+        @Override
+        public void finish(long position) {
+            counter--;
+        }
+
+        private void reset() {
+            buffer.reset();
+            finishPosition = -1;
+        }
+
+        public long getFinishPosition() {
+            return finishPosition;
         }
     }
 
@@ -205,7 +340,12 @@ public class HtmlLexer {
         /**
          * Comments.
          */
-        COMMENTS
+        COMMENTS,
+
+        /**
+         * Script.
+         */
+        SCRIPT
     }
 
     /**
@@ -308,6 +448,16 @@ public class HtmlLexer {
          */
         public static Token createComments(String value) {
             return new Token(TokenType.COMMENTS, value);
+        }
+
+        /**
+         * Returns new script.
+         *
+         * @param value value.
+         * @return script.
+         */
+        public static Token createScript(String value) {
+            return new Token(TokenType.SCRIPT, value);
         }
     }
 }
