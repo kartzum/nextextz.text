@@ -21,6 +21,7 @@ public class HtmlLexer {
 
     private static final String COMMENTS_TAG = "!--";
     private static final String SCRIPT_TAG = "script";
+    private static final String STYLE_TAG = "style";
 
     private final Text text;
     private final HtmlLexerHandler handler;
@@ -29,6 +30,7 @@ public class HtmlLexer {
 
     private boolean isCommentsProcessing;
     private boolean isScriptProcessing;
+    private boolean isStyleProcessing;
 
     /**
      * Creates new lexer.
@@ -53,7 +55,10 @@ public class HtmlLexer {
         Token result = Token.getEmpty();
         final Character symbol = getSymbol();
         if (symbol != null) {
-            if (isScriptProcessing()) {
+            if (isStyleProcessing()) {
+                result = getStyle();
+                finishStyleProcessing();
+            } else if (isScriptProcessing()) {
                 result = getScript();
                 finishScriptProcessing();
             } else if (isCommentsProcessing()) {
@@ -88,6 +93,13 @@ public class HtmlLexer {
                     break;
                 } else if (SCRIPT_TAG.equalsIgnoreCase(tagName)) {
                     startScriptProcessing();
+                    if (FINISH_SYMBOL == symbol) {
+                        buffer.append(symbol);
+                        makeStep();
+                    }
+                    break;
+                } else if (STYLE_TAG.equalsIgnoreCase(tagName)) {
+                    startStyleProcessing();
                     if (FINISH_SYMBOL == symbol) {
                         buffer.append(symbol);
                         makeStep();
@@ -147,23 +159,11 @@ public class HtmlLexer {
     }
 
     private Token getScript() {
-        final long startPosition = getPosition();
-        final StringBuilder buffer = new StringBuilder();
-        final SymbolProviderText symbolProvider = new SymbolProviderText(buffer);
-        final HtmlCommentsExplorer explorer = new HtmlCommentsExplorer(symbolProvider, symbolProvider);
-        for (; ; ) {
-            final boolean next = explorer.execute();
-            if (!next) {
-                break;
-            }
-        }
-        final long finishPosition = symbolProvider.getFinishPosition();
-        final int size = (int) (finishPosition - startPosition);
-        for (int i = 0; i < buffer.length() - size; i++) {
-            buffer.deleteCharAt(buffer.length() - 1);
-        }
-        shiftPosition(finishPosition);
-        return Token.createScript(buffer.toString());
+        return Token.createScript(getContentWithComments());
+    }
+
+    private Token getStyle() {
+        return Token.createStyle(getContentWithComments());
     }
 
     private boolean isTag(Character symbol) {
@@ -230,6 +230,18 @@ public class HtmlLexer {
         isScriptProcessing = true;
     }
 
+    private boolean isStyleProcessing() {
+        return isStyleProcessing;
+    }
+
+    private void finishStyleProcessing() {
+        isStyleProcessing = false;
+    }
+
+    private void startStyleProcessing() {
+        isStyleProcessing = true;
+    }
+
     private void skipSpaces() {
         for (; ; ) {
             final Character symbol = getSymbol();
@@ -245,6 +257,26 @@ public class HtmlLexer {
 
     private void shiftPosition(long position) {
         this.position = position;
+    }
+
+    private String getContentWithComments() {
+        final long startPosition = getPosition();
+        final StringBuilder buffer = new StringBuilder();
+        final SymbolProviderText symbolProvider = new SymbolProviderText(buffer);
+        final HtmlCommentsExplorer explorer = new HtmlCommentsExplorer(symbolProvider, symbolProvider);
+        for (; ; ) {
+            final boolean next = explorer.execute();
+            if (!next) {
+                break;
+            }
+        }
+        final long finishPosition = symbolProvider.getFinishPosition();
+        final int size = (int) (finishPosition - startPosition);
+        for (int i = 0; i < buffer.length() - size; i++) {
+            buffer.deleteCharAt(buffer.length() - 1);
+        }
+        shiftPosition(finishPosition);
+        return buffer.toString();
     }
 
     private class SymbolProviderText implements SymbolProvider, HtmlCommentsExplorerHandler {
@@ -345,7 +377,12 @@ public class HtmlLexer {
         /**
          * Script.
          */
-        SCRIPT
+        SCRIPT,
+
+        /**
+         * Style.
+         */
+        STYLE
     }
 
     /**
@@ -458,6 +495,16 @@ public class HtmlLexer {
          */
         public static Token createScript(String value) {
             return new Token(TokenType.SCRIPT, value);
+        }
+
+        /**
+         * Creates new style.
+         *
+         * @param value value.
+         * @return style.
+         */
+        public static Token createStyle(String value) {
+            return new Token(TokenType.STYLE, value);
         }
     }
 }

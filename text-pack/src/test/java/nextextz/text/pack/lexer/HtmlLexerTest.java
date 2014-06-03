@@ -302,6 +302,18 @@ public class HtmlLexerTest {
         assertTokens(tokens, test);
     }
 
+    @Test
+    public void test_style() {
+        executeLexer(createLexer("<style> s1 s2 <!-- 3 --> </style>", handler), handler);
+        final Collection<HtmlLexer.Token> test = Lists.newArrayList(
+                HtmlLexer.Token.createTag("<style>"),
+                HtmlLexer.Token.createStyle(" s1 s2 <!-- 3 --> "),
+                HtmlLexer.Token.createTag("</style>"),
+                HtmlLexer.Token.getEmpty()
+        );
+        assertTokens(tokens, test);
+    }
+
     private static void executeLexer(HtmlLexer lexer, HtmlLexerHandlerCollector handler) {
         for (; ; ) {
             lexer.execute();
