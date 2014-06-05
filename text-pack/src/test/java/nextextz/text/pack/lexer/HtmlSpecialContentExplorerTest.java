@@ -10,18 +10,18 @@ import java.util.List;
 
 import static junit.framework.Assert.assertTrue;
 
-public class HtmlCommentsExplorerTest {
+public class HtmlSpecialContentExplorerTest {
     @Test(expected = NullPointerException.class)
     public void test_null() {
-        new HtmlCommentsExplorer(null, null);
+        new HtmlSpecialContentExplorer(null, null);
     }
 
     @Test
     public void test_slash_comments_and_spaces() {
         final Collection<String> parts = Lists.newArrayList();
         final String text = "// 1\r\n2  // 4 /*  4 ***/  g";
-        final HtmlCommentsExplorerHandler handler = new HtmlCommentsExplorerHandlerCollector(text, parts);
-        final HtmlCommentsExplorer explorer = new HtmlCommentsExplorer(Factory.createSymbolProvider(text), handler);
+        final HtmlSpecialContentExplorerHandler handler = new HtmlSpecialContentExplorerHandlerCollector(text, parts);
+        final HtmlSpecialContentExplorer explorer = new HtmlSpecialContentExplorer(Factory.createSymbolProvider(text), handler);
         executeExplorer(explorer);
         assertParts(parts, Lists.newArrayList(" 1\r\n", "  4 ***/", " 4 /*  4 ***/  g"));
     }
@@ -30,13 +30,13 @@ public class HtmlCommentsExplorerTest {
     public void test_xml_comments_and_spaces() {
         final Collection<String> parts = Lists.newArrayList();
         final String text = "/* 1 <!-- 2 --> 3 */ // 4\r\n <!-- 6 /* 7 */ -->";
-        final HtmlCommentsExplorerHandler handler = new HtmlCommentsExplorerHandlerCollector(text, parts);
-        final HtmlCommentsExplorer explorer = new HtmlCommentsExplorer(Factory.createSymbolProvider(text), handler);
+        final HtmlSpecialContentExplorerHandler handler = new HtmlSpecialContentExplorerHandlerCollector(text, parts);
+        final HtmlSpecialContentExplorer explorer = new HtmlSpecialContentExplorer(Factory.createSymbolProvider(text), handler);
         executeExplorer(explorer);
         assertParts(parts, Lists.newArrayList(" 2 --> ", " 1 <!-- 2 --> 3 */", "/ 4\r\n", " 7 */", " 6 /* 7 */ -->"));
     }
 
-    private static void executeExplorer(HtmlCommentsExplorer explorer) {
+    private static void executeExplorer(HtmlSpecialContentExplorer explorer) {
         for (; ; ) {
             final boolean next = explorer.execute();
             if (!next) {
@@ -53,13 +53,13 @@ public class HtmlCommentsExplorerTest {
         }
     }
 
-    private static class HtmlCommentsExplorerHandlerCollector implements HtmlCommentsExplorerHandler {
+    private static class HtmlSpecialContentExplorerHandlerCollector implements HtmlSpecialContentExplorerHandler {
         private List<Long> startPositions = Lists.newArrayList();
 
         private final String text;
         private final Collection<String> parts;
 
-        public HtmlCommentsExplorerHandlerCollector(String text, Collection<String> parts) {
+        public HtmlSpecialContentExplorerHandlerCollector(String text, Collection<String> parts) {
             this.text = text;
             this.parts = parts;
         }

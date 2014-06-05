@@ -3,7 +3,7 @@ package nextextz.text.pack.lexer;
 /**
  * Handles data from explorer.
  */
-public interface HtmlCommentsExplorerHandler {
+public interface HtmlSpecialContentExplorerHandler {
     /**
      * Handles start.
      *

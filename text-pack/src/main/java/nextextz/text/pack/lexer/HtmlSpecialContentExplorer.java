@@ -10,19 +10,19 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
- * Finds comments and skips.
+ * Finds special content and skips.
  */
-public class HtmlCommentsExplorer {
+public class HtmlSpecialContentExplorer {
     private static final Character SLASH = '/';
     private static final Character SPACE = ' ';
     private static final Character ASTERISK = '*';
     private static final Character NEW_LINE = '\n';
 
     private final SymbolProvider symbolProvider;
-    private final HtmlCommentsExplorerHandler handler;
-    private final Collection<CommentsDetector> detectors = Lists.newArrayList();
+    private final HtmlSpecialContentExplorerHandler handler;
+    private final Collection<Detector> detectors = Lists.newArrayList();
 
-    private final List<CommentsDetector> history = Lists.newArrayList();
+    private final List<Detector> history = Lists.newArrayList();
 
     /**
      * Creates new explorer.
@@ -30,7 +30,7 @@ public class HtmlCommentsExplorer {
      * @param symbolProvider provider.
      * @param handler        handler.
      */
-    public HtmlCommentsExplorer(SymbolProvider symbolProvider, HtmlCommentsExplorerHandler handler) {
+    public HtmlSpecialContentExplorer(SymbolProvider symbolProvider, HtmlSpecialContentExplorerHandler handler) {
         checkNotNull(symbolProvider);
         checkNotNull(handler);
 
@@ -58,13 +58,13 @@ public class HtmlCommentsExplorer {
             }
             result = false;
         } else {
-            final CommentsDetector activeDetector = findActiveCommentsDetector(symbol);
+            final Detector activeDetector = findActiveDetector(symbol);
             if (activeDetector != null) {
                 move();
                 executeStart(activeDetector);
             } else {
                 if (history.size() > 0) {
-                    final CommentsDetector detector = history.get(history.size() - 1);
+                    final Detector detector = history.get(history.size() - 1);
                     if (detector.isFinish(symbol)) {
                         move();
                         executeFinish();
@@ -97,14 +97,14 @@ public class HtmlCommentsExplorer {
         handler.finish(getPosition());
     }
 
-    private void executeStart(CommentsDetector activeDetector) {
+    private void executeStart(Detector activeDetector) {
         history.add(activeDetector);
         handler.start(getPosition());
     }
 
-    private CommentsDetector findActiveCommentsDetector(Character symbol) {
-        CommentsDetector result = null;
-        for (CommentsDetector detector : detectors) {
+    private Detector findActiveDetector(Character symbol) {
+        Detector result = null;
+        for (Detector detector : detectors) {
             final boolean isStart = detector.isStart(symbol);
             if (isStart && result == null) {
                 result = detector;
@@ -113,13 +113,13 @@ public class HtmlCommentsExplorer {
         return result;
     }
 
-    private static abstract class CommentsDetector {
+    private static abstract class Detector {
         public abstract boolean isStart(Character symbol);
 
         public abstract boolean isFinish(Character symbol);
     }
 
-    private static class LineCommentsDetector extends CommentsDetector {
+    private static class LineCommentsDetector extends Detector {
         private static final List<Character> START_ARRAY = Arrays.asList('/', '/');
 
         private final FixSizeBuffer<Character> buffer = new FixSizeBuffer<>(2);
@@ -143,7 +143,7 @@ public class HtmlCommentsExplorer {
         }
     }
 
-    private static class ComplexCommentsDetector extends CommentsDetector {
+    private static class ComplexCommentsDetector extends Detector {
         private static final List<Character> START_ARRAY = Arrays.asList('/', '*');
 
         private final FixSizeBuffer<Character> buffer = new FixSizeBuffer<>(2);
@@ -176,7 +176,7 @@ public class HtmlCommentsExplorer {
         }
     }
 
-    private static class XmlCommentsDetector extends CommentsDetector {
+    private static class XmlCommentsDetector extends Detector {
         private static final List<Character> START_ARRAY = Arrays.asList('<', '!', '-', '-');
         private static final List<Character> FINISH_ARRAY = Arrays.asList('-', '-', '>');
 

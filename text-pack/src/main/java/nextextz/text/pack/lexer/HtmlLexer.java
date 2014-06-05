@@ -159,11 +159,11 @@ public class HtmlLexer {
     }
 
     private Token getScript() {
-        return Token.createScript(getContentWithComments());
+        return Token.createScript(getContentWithSpecialContent());
     }
 
     private Token getStyle() {
-        return Token.createStyle(getContentWithComments());
+        return Token.createStyle(getContentWithSpecialContent());
     }
 
     private boolean isTag(Character symbol) {
@@ -259,11 +259,11 @@ public class HtmlLexer {
         this.position = position;
     }
 
-    private String getContentWithComments() {
+    private String getContentWithSpecialContent() {
         final long startPosition = getPosition();
         final StringBuilder buffer = new StringBuilder();
         final SymbolProviderText symbolProvider = new SymbolProviderText(buffer);
-        final HtmlCommentsExplorer explorer = new HtmlCommentsExplorer(symbolProvider, symbolProvider);
+        final HtmlSpecialContentExplorer explorer = new HtmlSpecialContentExplorer(symbolProvider, symbolProvider);
         for (; ; ) {
             final boolean next = explorer.execute();
             if (!next) {
@@ -279,7 +279,7 @@ public class HtmlLexer {
         return buffer.toString();
     }
 
-    private class SymbolProviderText implements SymbolProvider, HtmlCommentsExplorerHandler {
+    private class SymbolProviderText implements SymbolProvider, HtmlSpecialContentExplorerHandler {
         private final StringBuilder content;
 
         private final List<Character> FINISH_ARRAY = Arrays.asList(START_SYMBOL, SLASH);
