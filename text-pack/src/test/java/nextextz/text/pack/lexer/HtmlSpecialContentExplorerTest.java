@@ -21,7 +21,8 @@ public class HtmlSpecialContentExplorerTest {
         final Collection<String> parts = Lists.newArrayList();
         final String text = "// 1\r\n2  // 4 /*  4 ***/  g";
         final HtmlSpecialContentExplorerHandler handler = new HtmlSpecialContentExplorerHandlerCollector(text, parts);
-        final HtmlSpecialContentExplorer explorer = new HtmlSpecialContentExplorer(Factory.createSymbolProvider(text), handler);
+        final HtmlSpecialContentExplorer explorer =
+                new HtmlSpecialContentExplorer(Factory.createSymbolProvider(text), handler);
         executeExplorer(explorer);
         assertParts(parts, Lists.newArrayList(" 1\r\n", "  4 ***/", " 4 /*  4 ***/  g"));
     }
@@ -31,9 +32,21 @@ public class HtmlSpecialContentExplorerTest {
         final Collection<String> parts = Lists.newArrayList();
         final String text = "/* 1 <!-- 2 --> 3 */ // 4\r\n <!-- 6 /* 7 */ -->";
         final HtmlSpecialContentExplorerHandler handler = new HtmlSpecialContentExplorerHandlerCollector(text, parts);
-        final HtmlSpecialContentExplorer explorer = new HtmlSpecialContentExplorer(Factory.createSymbolProvider(text), handler);
+        final HtmlSpecialContentExplorer explorer =
+                new HtmlSpecialContentExplorer(Factory.createSymbolProvider(text), handler);
         executeExplorer(explorer);
         assertParts(parts, Lists.newArrayList(" 2 --> ", " 1 <!-- 2 --> 3 */", "/ 4\r\n", " 7 */", " 6 /* 7 */ -->"));
+    }
+
+    @Test
+    public void test_strings() {
+        final Collection<String> parts = Lists.newArrayList();
+        final String text = "v='1'; v2=\"2\'3\";";
+        final HtmlSpecialContentExplorerHandler handler = new HtmlSpecialContentExplorerHandlerCollector(text, parts);
+        final HtmlSpecialContentExplorer explorer =
+                new HtmlSpecialContentExplorer(Factory.createSymbolProvider(text), handler);
+        executeExplorer(explorer);
+        assertParts(parts, Lists.newArrayList("1\'", "2\'3\""));
     }
 
     private static void executeExplorer(HtmlSpecialContentExplorer explorer) {

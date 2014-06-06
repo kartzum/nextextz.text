@@ -93,17 +93,13 @@ public class HtmlLexer {
                     break;
                 } else if (SCRIPT_TAG.equalsIgnoreCase(tagName)) {
                     startScriptProcessing();
-                    if (FINISH_SYMBOL == symbol) {
-                        buffer.append(symbol);
-                        makeStep();
-                    }
+                    moveToSymbol(FINISH_SYMBOL, buffer);
+                    makeStep();
                     break;
                 } else if (STYLE_TAG.equalsIgnoreCase(tagName)) {
                     startStyleProcessing();
-                    if (FINISH_SYMBOL == symbol) {
-                        buffer.append(symbol);
-                        makeStep();
-                    }
+                    moveToSymbol(FINISH_SYMBOL, buffer);
+                    makeStep();
                     break;
                 }
             }
@@ -255,6 +251,20 @@ public class HtmlLexer {
         }
     }
 
+    private void moveToSymbol(Character s, StringBuilder buffer) {
+        for (; ; ) {
+            final Character symbol = getSymbol();
+            if (symbol == null) {
+                break;
+            }
+            buffer.append(symbol);
+            if (symbol == s) {
+                break;
+            }
+            makeStep();
+        }
+    }
+
     private void shiftPosition(long position) {
         this.position = position;
     }
@@ -271,11 +281,13 @@ public class HtmlLexer {
             }
         }
         final long finishPosition = symbolProvider.getFinishPosition();
-        final int size = (int) (finishPosition - startPosition);
-        for (int i = 0; i < buffer.length() - size; i++) {
-            buffer.deleteCharAt(buffer.length() - 1);
+        if (finishPosition >= startPosition) {
+            final int size = (int) (finishPosition - startPosition);
+            for (int i = 0; i < buffer.length() - size; i++) {
+                buffer.deleteCharAt(buffer.length() - 1);
+            }
+            shiftPosition(finishPosition);
         }
-        shiftPosition(finishPosition);
         return buffer.toString();
     }
 

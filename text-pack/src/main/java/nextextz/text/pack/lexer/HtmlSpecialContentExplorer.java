@@ -14,9 +14,16 @@ import static com.google.common.base.Preconditions.checkNotNull;
  */
 public class HtmlSpecialContentExplorer {
     private static final Character SLASH = '/';
+    private static final Character BACK_SLASH = '\\';
     private static final Character SPACE = ' ';
     private static final Character ASTERISK = '*';
     private static final Character NEW_LINE = '\n';
+    private static final Character QUOTE = '\'';
+    private static final Character DOUBLE_QUOTE = '"';
+    private static final Character START = '<';
+    private static final Character FINISH = '>';
+    private static final Character EXCLAMATION_MARK = '!';
+    private static final Character MINUS = '-';
 
     private final SymbolProvider symbolProvider;
     private final HtmlSpecialContentExplorerHandler handler;
@@ -37,9 +44,13 @@ public class HtmlSpecialContentExplorer {
         this.symbolProvider = symbolProvider;
         this.handler = handler;
 
+        final FlagContainer symbolFlagContainer = new FlagContainer();
+
         detectors.add(new LineCommentsDetector());
         detectors.add(new ComplexCommentsDetector());
         detectors.add(new XmlCommentsDetector());
+        detectors.add(new SymbolDetector(QUOTE, symbolFlagContainer));
+        detectors.add(new SymbolDetector(DOUBLE_QUOTE, symbolFlagContainer));
     }
 
     /**
@@ -53,7 +64,7 @@ public class HtmlSpecialContentExplorer {
         final Character symbol = getSymbol();
 
         if (symbol == null) {
-            if (history.size() > 0) {
+            if (hasDetectors()) {
                 executeFinish();
             }
             result = false;
@@ -63,8 +74,8 @@ public class HtmlSpecialContentExplorer {
                 move();
                 executeStart(activeDetector);
             } else {
-                if (history.size() > 0) {
-                    final Detector detector = history.get(history.size() - 1);
+                if (hasDetectors()) {
+                    final Detector detector = getTailDetector();
                     if (detector.isFinish(symbol)) {
                         move();
                         executeFinish();
@@ -102,9 +113,46 @@ public class HtmlSpecialContentExplorer {
         handler.start(getPosition());
     }
 
+    private boolean hasDetectors() {
+        return history.size() > 0;
+    }
+
+    private Detector getTailDetector() {
+        Detector result = null;
+        if (history.size() > 0) {
+            result = history.get(history.size() - 1);
+        }
+        return result;
+    }
+
+    private boolean isTailDetectorHierarchical() {
+        boolean result = false;
+        final Detector detector = getTailDetector();
+        if (detector != null && !(isDetectorLinear(detector))) {
+            result = true;
+        }
+        return result;
+    }
+
+    private boolean isTailDetectorLinear() {
+        boolean result = false;
+        final Detector detector = getTailDetector();
+        if (detector != null && isDetectorLinear(detector)) {
+            result = true;
+        }
+        return result;
+    }
+
+    private boolean isDetectorLinear(Detector detector) {
+        return detector instanceof SymbolDetector;
+    }
+
     private Detector findActiveDetector(Character symbol) {
         Detector result = null;
         for (Detector detector : detectors) {
+            if ((isTailDetectorHierarchical() && isDetectorLinear(detector)) || isTailDetectorLinear()) {
+                continue;
+            }
             final boolean isStart = detector.isStart(symbol);
             if (isStart && result == null) {
                 result = detector;
@@ -120,7 +168,7 @@ public class HtmlSpecialContentExplorer {
     }
 
     private static class LineCommentsDetector extends Detector {
-        private static final List<Character> START_ARRAY = Arrays.asList('/', '/');
+        private static final List<Character> START_ARRAY = Arrays.asList(SLASH, SLASH);
 
         private final FixSizeBuffer<Character> buffer = new FixSizeBuffer<>(2);
 
@@ -144,7 +192,7 @@ public class HtmlSpecialContentExplorer {
     }
 
     private static class ComplexCommentsDetector extends Detector {
-        private static final List<Character> START_ARRAY = Arrays.asList('/', '*');
+        private static final List<Character> START_ARRAY = Arrays.asList(SLASH, ASTERISK);
 
         private final FixSizeBuffer<Character> buffer = new FixSizeBuffer<>(2);
 
@@ -177,8 +225,8 @@ public class HtmlSpecialContentExplorer {
     }
 
     private static class XmlCommentsDetector extends Detector {
-        private static final List<Character> START_ARRAY = Arrays.asList('<', '!', '-', '-');
-        private static final List<Character> FINISH_ARRAY = Arrays.asList('-', '-', '>');
+        private static final List<Character> START_ARRAY = Arrays.asList(START, EXCLAMATION_MARK, MINUS, MINUS);
+        private static final List<Character> FINISH_ARRAY = Arrays.asList(MINUS, MINUS, FINISH);
 
         private final FixSizeBuffer<Character> startBuffer = new FixSizeBuffer<>(4);
         private final FixSizeBuffer<Character> finishBuffer = new FixSizeBuffer<>(3);
@@ -206,6 +254,59 @@ public class HtmlSpecialContentExplorer {
                 if (SPACE != symbol) {
                     finishBuffer.add(symbol);
                 }
+            }
+            return result;
+        }
+    }
+
+    private static class FlagContainer {
+        private boolean flag;
+
+        public boolean isFlag() {
+            return flag;
+        }
+
+        public void resentFlag() {
+            flag = false;
+        }
+
+        public void turnOn() {
+            flag = true;
+        }
+    }
+
+    private static class SymbolDetector extends Detector {
+        private final Character symbol;
+        private final FlagContainer container;
+        private boolean isNextSpecial;
+
+        public SymbolDetector(Character symbol, FlagContainer container) {
+            this.symbol = symbol;
+            this.container = container;
+        }
+
+        @Override
+        public boolean isStart(Character symbol) {
+            boolean result = false;
+            if (BACK_SLASH == symbol) {
+                isNextSpecial = true;
+            } else {
+                if (isNextSpecial) {
+                    isNextSpecial = false;
+                } else if (!container.isFlag() && symbol == this.symbol) {
+                    container.turnOn();
+                    result = true;
+                }
+            }
+            return result;
+        }
+
+        @Override
+        public boolean isFinish(Character symbol) {
+            boolean result = false;
+            if (container.isFlag() && symbol == this.symbol) {
+                container.resentFlag();
+                result = true;
             }
             return result;
         }

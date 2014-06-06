@@ -303,6 +303,39 @@ public class HtmlLexerTest {
     }
 
     @Test
+    public void test_script_with_src() {
+        executeLexer(createLexer("<script src=\"p\"></script>", handler), handler);
+        final Collection<HtmlLexer.Token> test = Lists.newArrayList(
+                HtmlLexer.Token.createTag("<script src=\"p\">"),
+                HtmlLexer.Token.createScript(""),
+                HtmlLexer.Token.createTag("</script>"),
+                HtmlLexer.Token.getEmpty()
+        );
+        assertTokens(tokens, test);
+    }
+
+    @Test
+    public void test_script_with_src_and_http() {
+        executeLexer(createLexer("<script>if(html5Check){" +
+                "Event.observe(window,'load',function(){" +
+                "$('id').update('<div class=\"id1\"><a " +
+                "href=\"http://a.b.com/\"><img src=\"http://i.a.b" +
+                ".com/\" width=\"980\" height=\"50\" border=\"0\" alt=\"\"/></a></div>');" +
+                "});" +
+                "}</script>", handler), handler);
+        final Collection<HtmlLexer.Token> test = Lists.newArrayList(
+                HtmlLexer.Token.createTag("<script>"),
+                HtmlLexer.Token.createScript("if(html5Check){Event.observe(window,'load'," +
+                        "function(){$('id').update('<div class=\"id1\"><a href=\"http://a.b.com/\">" +
+                        "<img src=\"http://i.a.b.com/\" width=\"980\" height=\"50\"" +
+                        " border=\"0\" alt=\"\"/></a></div>');});}"),
+                HtmlLexer.Token.createTag("</script>"),
+                HtmlLexer.Token.getEmpty()
+        );
+        assertTokens(tokens, test);
+    }
+
+    @Test
     public void test_style() {
         executeLexer(createLexer("<style> s1 s2 <!-- 3 --> </style>", handler), handler);
         final Collection<HtmlLexer.Token> test = Lists.newArrayList(

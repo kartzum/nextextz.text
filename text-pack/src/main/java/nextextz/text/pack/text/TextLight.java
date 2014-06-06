@@ -13,7 +13,7 @@ class TextLight implements Text {
     @Override
     public Character getSymbol(long index) {
         Character result = null;
-        if (index < value.length()) {
+        if (index < value.length() && index >= 0) {
             result = value.charAt((int) index);
         }
         return result;
